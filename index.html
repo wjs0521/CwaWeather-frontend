@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>森森天氣</title>
+    <title>六都天氣</title>
     <link rel="icon" type="image/png" href="./icon-v2.png">
     <link rel="apple-touch-icon" href="./icon-v2.png">
     <link rel="apple-touch-icon" sizes="180x180" href="./icon-v2.png">
@@ -255,6 +255,43 @@
             align-items: center;
             z-index: 999;
         }
+
+        /* === 城市選擇按鈕 === */
+        #cityButtons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 30px;
+            padding: 0 10px;
+            justify-content: center;
+        }
+
+        .city-btn {
+            flex: 0 1 auto;
+            min-width: 80px;
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.6);
+            border: 3px solid white;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1rem;
+            color: var(--ac-brown);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Zen Maru Gothic', sans-serif;
+        }
+
+        .city-btn:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: scale(1.05);
+        }
+
+        .city-btn.active {
+            background: var(--ac-yellow);
+            color: var(--ac-brown);
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
+            transform: scale(1.08);
+        }
     </style>
 </head>
 
@@ -269,6 +306,8 @@
     </div>
 
     <div class="container" id="mainContent" style="display: none;">
+        <!-- 城市選擇按鈕區域 -->
+        <div id="cityButtons"></div>
 
         <div id="heroCard">
         </div>
@@ -276,11 +315,14 @@
         <h3 class="section-title">稍後預報</h3>
         <div class="scroll-container" id="futureForecasts">
         </div>
-
     </div>
 
     <script>
-        const API_URL = "https://weather-jacky.zeabur.app/api/weather/kaohsiung";
+        // 1. 定義縣市列表和當前選擇的縣市
+        const CITIES = ['臺北市', '新北市', '桃園市', '臺中市', '臺南市', '高雄市'];
+        let selectedCity = '新北市'; // 預設為新北市
+
+        const API_BASE_URL = "https://weather-jacky.zeabur.app/api/weather/";
 
         function getWeatherIcon(weather) {
             if (!weather) return "🌤️";
@@ -326,6 +368,9 @@
             const forecasts = data.forecasts;
             const current = forecasts[0];
             const others = forecasts.slice(1);
+
+            // 更新左上角縣市名稱
+            document.querySelector('.location-pill').textContent = `📍 ${selectedCity}`;
 
             // 1. 渲染 Hero Card (主畫面)
             const advice = getAdvice(current.rain, current.maxTemp);
@@ -394,20 +439,18 @@
 
         async function fetchWeather() {
             try {
-                // 1. 定義「最低等待時間」：1500 毫秒 (1.5秒)
                 const delayPromise = new Promise(resolve => setTimeout(resolve, 1500));
 
-                // 2. 定義「抓取資料」的工作
+                // 使用 selectedCity 動態構建 API_URL
+                const cityParam = encodeURIComponent(selectedCity);
+                const API_URL = API_BASE_URL + cityParam;
+
                 const fetchPromise = fetch(API_URL).then(res => res.json());
 
-                // 3. Promise.all 會等待「兩個都完成」才會往下走
-                // result 陣列裡，第一個是 delay 的結果(沒用到)，第二個是 api 的 json 資料
                 const [_, json] = await Promise.all([delayPromise, fetchPromise]);
 
                 if (json.success) {
                     renderWeather(json.data);
-
-                    // 資料處理好後，隱藏 Loading，顯示主畫面
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('mainContent').style.display = 'block';
                 } else {
@@ -419,7 +462,33 @@
             }
         }
 
-        document.addEventListener("DOMContentLoaded", fetchWeather);
+        // 2. 新增城市按鈕點擊事件處理
+        function initCityButtons() {
+            const buttonContainer = document.getElementById('cityButtons');
+            CITIES.forEach(city => {
+                const btn = document.createElement('button');
+                btn.textContent = city;
+                btn.className = selectedCity === city ? 'city-btn active' : 'city-btn';
+                btn.onclick = () => {
+                    selectedCity = city;
+                    // 重新渲染所有按鈕狀態
+                    document.querySelectorAll('.city-btn').forEach(b => {
+                        b.classList.remove('active');
+                    });
+                    btn.classList.add('active');
+                    // 重新抓取天氣資料
+                    document.getElementById('loading').style.display = 'flex';
+                    document.getElementById('mainContent').style.display = 'none';
+                    fetchWeather();
+                };
+                buttonContainer.appendChild(btn);
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initCityButtons();
+            fetchWeather();
+        });
     </script>
 </body>
 
